@@ -90,7 +90,7 @@ syncer::syncer(uint64_t sample_rate, shared_ptr<nr::phy> phy) :
   waiting_for_pss = 0;
   counting_samples = 0;      
   bool in_synch;
-  ssb_period = 0.02; // SSB periodicity is 20 ms for initial access.
+  ssb_period = 0.01; // SSB periodicity is 20 ms for initial access normally, 10 ms in srsran.
   // Window size to look for PSS after we are already sync. 8 OFDM symbols 
   pss_window_size = std::floor((float)sample_rate /(float)(phy->ssb_bwp->scs) * 8);
  
@@ -118,7 +118,7 @@ void syncer::process(shared_ptr<vector<complex<float>>>& samples, int64_t metada
   // Apply frequency correction to new samples
   SPDLOG_DEBUG("Applying CFO {} to new samples coming to the processing queue counter", -cfo);
 
-  rotate(*samples.get(), *samples.get(), -cfo, sample_rate);   
+  rotate(*samples.get(), *samples.get(), -cfo, sample_rate);
   // Add the samples to the processing queue
   processing_queue = std::move(*samples.get());
 
@@ -227,6 +227,8 @@ void syncer::find_pss() {
     // Only look for PSS in a window of samples, as we already have a coarse estimation where it will be
     if (phy->in_synch){
       start_sample = max(int64_t(0),int64_t((sample_rate * ssb_period - (waiting_for_pss - processing_queue.size()) - pss_window_size)));
+      // Waiting for pss: we haven't seen the pss in a while so we substract this time from the window. For example, if we know pss is every 10 ms, we haven't seen it in 8, then we know it's gonna come in the next two
+      // (waiting_for_pss-processing_queue.size()) is the amount of samples processed since last pss detection.
       end_sample =  min(int64_t(processing_queue.size()),int64_t(start_sample + pss_window_size*2 + 1)); 
       downsampled_offset = (start_sample+1)*resampling_rate;
     }else{

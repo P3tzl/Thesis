@@ -28,6 +28,8 @@
 #include "exceptions.h"
 #include "config.h"
 
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
+
 using namespace std;
 extern struct config config;
 
@@ -43,14 +45,18 @@ static void usage() {
  */
 int main(int argc, char** argv) {
   string config_path;
+  spdlog::set_level(spdlog::level::trace);
 
   #ifdef DEBUG_BUILD
     SPDLOG_INFO("=== This is a debug mode build ===");
+    SPDLOG_DEBUG("This message should be visible");
   #endif
+
 
   // Load spdlog level from environment variable
   // For example: export SPDLOG_LEVEL=debug
-  spdlog::cfg::load_env_levels();
+  //spdlog::cfg::load_env_levels();
+
 
   // Set logger pattern
   spdlog::set_pattern("[%^%l%$] [%H:%M:%S.%f thread %t] [%s:%#] %v");

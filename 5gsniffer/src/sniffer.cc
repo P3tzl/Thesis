@@ -68,7 +68,7 @@ void sniffer::init() {
   auto phy = make_shared<nr::phy>();  
   phy->ssb_bwp = make_unique<bandwidth_part>(3'840'000 * (1<<ssb_numerology), ssb_numerology, ssb_rb); // Default bandwidth part that captures at least 256 subcarriers (240 needed for SSB).
   auto syncer = make_shared<class syncer>(sample_rate, phy);
-
+    // 3.84 MHz because of 15 kHz SCS (240 subcarriers for SSB)=3.6. But, halfband decimator is used that ideally requires a multiple of 2. So, 3.84 MHz (256 subcarriers) is used.
   // Callbacks
   device->on_end = std::bind(&sniffer::stop, this);
 
@@ -77,7 +77,7 @@ void sniffer::init() {
 
 void sniffer::start() {
   running = true;
-  float seconds_per_chunk = 0.0080;
+  float seconds_per_chunk = 0.0080; // For us: MIB transmission in theory every 80ms (38.331), but differs based on srsran.
     
   uint32_t num_samples_per_chunk = static_cast<uint32_t>(sample_rate * seconds_per_chunk);
 

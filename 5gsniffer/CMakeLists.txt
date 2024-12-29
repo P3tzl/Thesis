@@ -36,7 +36,7 @@ endif()
 
 # Allow debug level messages even in release mode depending on SPDLOG_LEVEL
 # At some stage this may be disallowed by moving it into the above if-statement
-add_compile_definitions(SPDLOG_ACTIVE_LEVEL=1)
+add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
 
 ########################################################################
 # Dependencies
