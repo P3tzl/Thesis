@@ -28,8 +28,6 @@
 #include "exceptions.h"
 #include "config.h"
 
-#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
-
 using namespace std;
 extern struct config config;
 
@@ -63,7 +61,7 @@ int main(int argc, char** argv) {
 
   // Get config path from command-line args
   if (argc == 1) {
-    config_path = string("config.toml");
+    config_path = string("../../Lab_conf.toml");
   } else if (argc == 2) {
     config_path = string(argv[1]);
   } else {
@@ -76,7 +74,7 @@ int main(int argc, char** argv) {
     config = config::load(config_path);
 
     // Create sniffer
-    if(config.file_path.compare("") == 0) {
+    if(config.file_path.empty()) {
       sniffer sniffer(config.sample_rate, config.frequency, config.rf_args, config.ssb_numerology);
       sniffer.start();  
     } else {

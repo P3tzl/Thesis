@@ -25,8 +25,17 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Add OpenMP support
+find_package(OpenMP REQUIRED)
+if(OpenMP_FOUND)
+  message(STATUS "OpenMP found, adding flags.")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+else()
+  message(FATAL_ERROR "OpenMP not found. Ensure your compiler supports OpenMP.")
+endif()
+
 # Should be set at some point, but gives too many errors for srsRAN
-# set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wconversion")
+#set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wconversion")
 
 # Warn user if we are in debug mode and add a debug flag
 if (CMAKE_BUILD_TYPE STREQUAL Debug)
@@ -36,7 +45,7 @@ endif()
 
 # Allow debug level messages even in release mode depending on SPDLOG_LEVEL
 # At some stage this may be disallowed by moving it into the above if-statement
-add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
+add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
 
 ########################################################################
 # Dependencies
@@ -83,6 +92,9 @@ link_directories(${INSTALL_DIR}/src/srsRAN-build/lib/src/pdcp)
 # Logging library
 add_compile_definitions(SPDLOG_FMT_EXTERNAL)
 find_package(spdlog REQUIRED)
+
+#Parallel processing
+find_package(OpenMP REQUIRED)
 
 ########################################################################
 # Add general includes and dependencies

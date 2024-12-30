@@ -39,8 +39,8 @@
 #include "rotator.h"
 #include "shifter.h"
 #include "file_sink.h"
-#include "channel_mapper.h"
 #include "config.h"
+#include "symbol.h"
 #include <fstream>
 
 extern struct config config;
@@ -65,12 +65,12 @@ syncer::syncer(uint64_t sample_rate, shared_ptr<nr::phy> phy) :
   std::array <std::array<std::complex<float>,sss_length>,nid_max+1> ssss = sss_ref.generate_all_sss_seq();
   phy->ssss = ssss;
   // Setup resampler
-  unsigned int h_len = 51;                               // Filter semi-length (filter delay)
+  unsigned int h_len = 51;                               // Filter semi-length (filter delay). Longer filter=better frequency response but more complexity
   resampling_rate = (float)phy->ssb_bwp->sample_rate / (float)sample_rate; // Resampling rate (output/input)
   max_resampled_samples_per_sample = (unsigned int)ceilf(resampling_rate);
-  float bw = 0.08f;                                       // Resampling filter bandwidth TODO this parameter is important
-  float slsl = 70.0f;                                    // Resampling filter sidelobe suppression level
-  unsigned int npfb = 16;                                // Number of filters in bank (timing resolution)
+  float bw = 0.08f;                                       // Resampling filter bandwidth TODO this parameter is important. Smaller=better frequency response but more complexity
+  float slsl = 70.0f;                                    // Resampling filter sidelobe suppression level. Higher=reduce interference from nearby freq but increase complexity
+  unsigned int npfb = 16;                                // Number of filters in bank (timing resolution). More filters=better timing resolution but more complexity
   resampler = resamp_crcf_create(resampling_rate, h_len, bw, slsl, npfb);
 
   // Look for a given PSS index as specified in the config file
@@ -99,7 +99,7 @@ syncer::syncer(uint64_t sample_rate, shared_ptr<nr::phy> phy) :
   this->connect(flow_pool);
 }
 
-/** 
+/**
  * Destructor for syncer.
  */
 syncer::~syncer() {
@@ -413,28 +413,13 @@ void syncer::on_mib_found(srsran_mib_nr_t& mib, bool found) {
       auto new_bwp = make_shared<bandwidth_part>(this->sample_rate, pdcch_cfg.numerology, pdcch_cfg.num_prbs, pdcch_cfg.extended_prefix);
       phy->bandwidth_parts.push_back(new_bwp);
       
-      auto mapper = make_shared<channel_mapper>(phy, pdcch_cfg);
-      phy->channel_mappers.push_back(mapper);
+
     }
   }
 
   // If we had at least one BWP, perform fine time synchronization on the first BWP added (full-rate)
   if(phy->bandwidth_parts.size() > 0) {
     fine_time_sync();
-  }
-
-  // Now that we are synced, create a processing flow for each BWP
-  
-  assert(phy->bandwidth_parts.size() == phy->channel_mappers.size());
-  for(int i = 0; i < phy->bandwidth_parts.size(); i++) {
-      auto bwp = phy->bandwidth_parts.at(i);
-      auto mapper = phy->channel_mappers.at(i);
-      auto flow = flow_pool->acquire_flow();
-      auto rotator = make_shared<class rotator>(this->sample_rate, (float)mapper->pdcch.subcarrier_offset*(float)bwp->scs);
-      auto ofdm = make_shared<class ofdm>(bwp);
-      flow->connect(rotator);
-      rotator->connect(ofdm);
-      ofdm->connect(mapper); // Connect OFDM block to the shared PHY-layer channel mapper
   }
 
   // Locking the PSS and SSS to the synch'ed values

@@ -26,7 +26,7 @@
 #include <vector>
 #include <memory>
 #include "bandwidth_part.h"
-#include "channel_mapper.h"
+#include "symbol.h"
 
 using namespace std;
 
@@ -43,7 +43,6 @@ namespace nr {
       bool in_synch;
       shared_ptr<bandwidth_part> ssb_bwp;                 ///< Special bandwidth part used for the SSB only
       vector<shared_ptr<bandwidth_part>> bandwidth_parts;
-      vector<shared_ptr<channel_mapper>> channel_mappers;
       std::array<std::array<std::complex<float>,sss_length>,nid_max+1> ssss;
 
       phy();

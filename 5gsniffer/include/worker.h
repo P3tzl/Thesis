@@ -28,6 +28,7 @@
 #include <memory>
 #include "symbol.h"
 #include "exceptions.h"
+#include <omp.h>
 
 using namespace std;
 
@@ -71,17 +72,11 @@ class worker {
      * @param inputs shared_ptr to input buffer to pass on to the next workers
      */
     template<class T>
-    void send_to_next_workers(shared_ptr<vector<T>> inputs) {
-      // Send work to next workers TODO parallelize
-      for (const auto& worker : this->next_workers) {
-        worker->work(inputs, 0);
-      }
-    }
-    template<class T>
-    void send_to_next_workers(shared_ptr<vector<T>> inputs, int64_t metadata) {
-      // Send work to next workers TODO parallelize
-      for (const auto& worker : this->next_workers) {
-        worker->work(inputs,metadata);
+    void send_to_next_workers(shared_ptr<vector<T>> inputs, int64_t metadata=0) {
+      // Parallelized using OpenMP
+      #pragma omp parallel for
+      for (size_t i = 0; i < this->next_workers.size(); ++i) {
+        this->next_workers[i]->work(inputs, metadata);
       }
     }
 
