@@ -33,7 +33,7 @@
 using namespace std;
 
 template <class T>
-void dump_to_file(string path, span<T> input, bool append = false) {
+void dump_to_file(const string& path, span<T> input, bool append = false) {
   size_t size_bytes = input.size() * sizeof(T);
   std::ios::openmode open_mode = std::ios::binary;
   if(append)
@@ -60,12 +60,12 @@ inline chrono::system_clock::time_point time_profile_start(void) {
   #endif
 }
 
-inline void time_profile_end(chrono::system_clock::time_point start_time_point, string function_name) {
+inline void time_profile_end(chrono::system_clock::time_point start_time_point, const string& function_name) {
   #ifdef DEBUG_BUILD
     auto end_time_point = std::chrono::high_resolution_clock::now();
     chrono::duration<double> time_difference = end_time_point - start_time_point;
-    chrono::microseconds microseconds = chrono::duration_cast<chrono::microseconds>( time_difference );
-    SPDLOG_DEBUG("{} took {} microseconds", function_name, microseconds.count());
+    chrono::milliseconds milliseconds = chrono::duration_cast<chrono::milliseconds>( time_difference );
+    SPDLOG_DEBUG("{} took {} milliseconds", function_name, milliseconds.count());
   #endif
 }
 

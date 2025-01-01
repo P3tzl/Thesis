@@ -68,7 +68,7 @@ syncer::syncer(uint64_t sample_rate, shared_ptr<nr::phy> phy) :
   unsigned int h_len = 51;                               // Filter semi-length (filter delay). Longer filter=better frequency response but more complexity
   resampling_rate = (float)phy->ssb_bwp->sample_rate / (float)sample_rate; // Resampling rate (output/input)
   max_resampled_samples_per_sample = (unsigned int)ceilf(resampling_rate);
-  float bw = 0.08f;                                       // Resampling filter bandwidth TODO this parameter is important. Smaller=better frequency response but more complexity
+  float bw = 0.1f;                                       // Resampling filter bandwidth TODO this parameter is important. Smaller=better frequency response but more complexity
   float slsl = 70.0f;                                    // Resampling filter sidelobe suppression level. Higher=reduce interference from nearby freq but increase complexity
   unsigned int npfb = 16;                                // Number of filters in bank (timing resolution). More filters=better timing resolution but more complexity
   resampler = resamp_crcf_create(resampling_rate, h_len, bw, slsl, npfb);
@@ -92,7 +92,7 @@ syncer::syncer(uint64_t sample_rate, shared_ptr<nr::phy> phy) :
   bool in_synch;
   ssb_period = 0.01; // SSB periodicity is 20 ms for initial access normally, 10 ms in srsran.
   // Window size to look for PSS after we are already sync. 8 OFDM symbols 
-  pss_window_size = std::floor((float)sample_rate /(float)(phy->ssb_bwp->scs) * 8);
+  pss_window_size = std::floor((float)sample_rate /(float)(phy->ssb_bwp->scs) * 16);
  
   // Create pool of 64 flows that can process samples in parallel after synchronization
   flow_pool = make_shared<nr::flow_pool>(64);
@@ -118,9 +118,9 @@ void syncer::process(shared_ptr<vector<complex<float>>>& samples, int64_t metada
   // Apply frequency correction to new samples
   SPDLOG_DEBUG("Applying CFO {} to new samples coming to the processing queue counter", -cfo);
 
-  rotate(*samples.get(), *samples.get(), -cfo, sample_rate);
+  rotate(*samples, *samples, -cfo, sample_rate);
   // Add the samples to the processing queue
-  processing_queue = std::move(*samples.get());
+  processing_queue = std::move(*samples);
 
   if (state == state::reset) {
     // Clear processing queues
@@ -142,7 +142,7 @@ void syncer::process(shared_ptr<vector<complex<float>>>& samples, int64_t metada
    if (waiting_for_pss > sample_rate * ssb_period){ // We missed the SSB
     waiting_for_pss = 0;
     phy->in_synch = false;
-    SPDLOG_DEBUG("PSS tracking failed resetting");
+    SPDLOG_INFO("PSS tracking failed resetting");
    } else {
     waiting_for_pss += processing_queue.size();
    } 
@@ -161,7 +161,7 @@ void syncer::process(shared_ptr<vector<complex<float>>>& samples, int64_t metada
   }
 
   if (state == state::find_pss) {
-    SPDLOG_DEBUG("Looking for PSS");
+    SPDLOG_INFO("Looking for PSS");
     auto find_pss_t0 = time_profile_start();
     find_pss();
     time_profile_end(find_pss_t0, "syncer::find_pss");
@@ -380,42 +380,6 @@ void syncer::on_mib_found(srsran_mib_nr_t& mib, bool found) {
 
   SPDLOG_DEBUG("CFO fine (Hz) applied after finding MIB: {}", cfo);
 
-  // If the initial downlink bandwidth part doesn't exist yet, create it
-  // Also create any other bandwidth parts specified in the config file
-  if(phy->bandwidth_parts.size() == 0) {
-    uint32_t flow_index = 0;
-
-    for(pdcch_config pdcch_cfg : config.pdcch_configs) {
-      // Override config with MIB
-      if(pdcch_cfg.use_config_from_mib) {
-        assert(mib.scs_common <= max_numerology);
-        pdcch_cfg.numerology = (uint8_t)mib.scs_common;
-        std::array<uint8_t, 4> coreset0_config = phy->ssb_bwp->get_pdcch_coreset0(5, phy->ssb_bwp->scs,  15000U << mib.scs_common, mib.coreset0_idx);
-        pdcch_cfg.num_prbs = coreset0_config.at(1);
-        pdcch_cfg.coreset_duration = coreset0_config.at(2);
-        pdcch_cfg.subcarrier_offset = mib.ssb_offset + (pdcch_cfg.num_prbs/2);
-        pdcch_cfg.extended_prefix = false;
-      }
-
-      // Simplify brute force if we are looking only for SI DCI
-      if (pdcch_cfg.si_dci_only) {
-        pdcch_cfg.scrambling_id_start = phy->get_cell_id(); // Scrambling ID for SI DCI is always the cell ID
-        pdcch_cfg.scrambling_id_end = phy->get_cell_id();
-        pdcch_cfg.rnti_start = 65535; // SI-RNTI is always 65535
-        pdcch_cfg.rnti_end = 65535;
-        pdcch_cfg.coreset_interleaving_pattern = "interleaved";
-        pdcch_cfg.coreset_reg_bundle_size = 6;
-        pdcch_cfg.coreset_interleaver_size = 2;
-        pdcch_cfg.coreset_nshift = phy->get_cell_id();
-
-      }
-
-      auto new_bwp = make_shared<bandwidth_part>(this->sample_rate, pdcch_cfg.numerology, pdcch_cfg.num_prbs, pdcch_cfg.extended_prefix);
-      phy->bandwidth_parts.push_back(new_bwp);
-      
-
-    }
-  }
 
   // If we had at least one BWP, perform fine time synchronization on the first BWP added (full-rate)
   if(phy->bandwidth_parts.size() > 0) {
